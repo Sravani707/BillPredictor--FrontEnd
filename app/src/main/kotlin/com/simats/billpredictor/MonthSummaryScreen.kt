@@ -4,249 +4,305 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.simats.billpredictor.ui.theme.BillpredictorTheme
-import kotlin.math.atan2
+import com.simats.billpredictor.network.ExpenseApi
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+
+data class CategoryUiSummary(
+    val name: String,
+    val amount: Float,
+    val color: Color
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MonthSummaryScreen(
+fun MonthlySummaryScreen(
+    userId: Int,
+    api: ExpenseApi,
     onBackClicked: () -> Unit,
-    onAddClicked: () -> Unit,
     currentScreen: Screen,
     onNavigate: (Screen) -> Unit
 ) {
+
+    val scope = rememberCoroutineScope()
+
+    var totalSpent by remember { mutableFloatStateOf(0f) }
+    var dailyAvg by remember { mutableFloatStateOf(0f) }
+    var categorySummary by remember { mutableStateOf(listOf<CategoryUiSummary>()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    val colors = listOf(
+        Color(0xFF00C49F),
+        Color(0xFFE91E63),
+        Color(0xFF3F51B5),
+        Color(0xFFF44336),
+        Color(0xFF2196F3),
+        Color(0xFFFF9800)
+    )
+
+    val animatedSweeps = remember { mutableStateListOf<Float>() }
+
+    LaunchedEffect(userId) {
+        isLoading = true
+        try {
+            val response = api.getHistory(userId)
+
+            /* ---------------- FIX START ---------------- */
+            // FILTER ONLY CURRENT MONTH EXPENSES
+            val expenses = response.expenses.filter {
+                println("DATE FROM API = ${it.expense_date}")
+                isCurrentMonth(it.expense_date)
+            }
+            /* ---------------- FIX END ---------------- */
+
+            val grouped = expenses.groupBy { it.category_name ?: "Other" }
+
+            val summary = grouped.entries.mapIndexed { index, entry ->
+
+                val sum = entry.value.sumOf {
+                    it.amount?.toDoubleOrNull() ?: 0.0
+                }.toFloat()
+
+                CategoryUiSummary(
+                    name = entry.key,
+                    amount = sum,
+                    color = colors[index % colors.size]
+                )
+            }
+
+            categorySummary = summary
+            totalSpent = summary.sumOf { it.amount.toDouble() }.toFloat()
+
+            // REAL DAYS IN CURRENT MONTH
+            val calendar = Calendar.getInstance()
+            val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+            dailyAvg = if (totalSpent > 0f) totalSpent / daysInMonth else 0f
+
+            animatedSweeps.clear()
+            summary.forEach { animatedSweeps.add(0f) }
+
+            summary.forEachIndexed { index, cat ->
+
+                val targetSweep =
+                    if (totalSpent > 0f)
+                        360f * (cat.amount / totalSpent)
+                    else 0f
+
+                scope.launch {
+                    val anim = Animatable(0f)
+                    anim.animateTo(
+                        targetValue = targetSweep,
+                        animationSpec = tween(900)
+                    )
+                    animatedSweeps[index] = anim.value
+                }
+            }
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            isLoading = false
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Month Summary") },
                 navigationIcon = {
                     IconButton(onClick = onBackClicked) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                }
             )
         },
         bottomBar = {
-            BottomAppBar(
-                containerColor = Color.White,
-                content = {
-                    BottomNavigationBar(currentScreen, onNavigate)
-                }
+            BottomNavigationBar(
+                currentScreen = currentScreen,
+                onNavigate = onNavigate
             )
-        },
-        floatingActionButton = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                FloatingActionButton(
-                    onClick = onAddClicked,
-                    shape = CircleShape,
-                    containerColor = Color(0xFF4285F4),
-                    modifier = Modifier.offset(y = 60.dp) // Adjust this value to move the button down
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Expense", tint = Color.White)
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("Add", fontWeight = FontWeight.Medium, modifier = Modifier.offset(y = 60.dp))
-            }
-        },
-        floatingActionButtonPosition = FabPosition.Center,
+        }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.White)
-                .padding(padding)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            item {
-                TotalSpentSummary()
-                Spacer(modifier = Modifier.height(24.dp))
-                ExpenseDonutChart()
-                Spacer(modifier = Modifier.height(24.dp))
-                CategoryBreakdown()
+
+        if (isLoading) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
             }
-        }
-    }
-}
+        } else {
 
-@Composable
-fun TotalSpentSummary() {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("Total Spent")
-        Text("\$1,260", fontSize = 48.sp, fontWeight = FontWeight.Bold)
-        Text("Daily avg: \$ 105")
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFFFFEBEE))
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Default.ArrowUpward, contentDescription = "Over Prediction", tint = Color(0xFFD32F2F), modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("211 over prediction", color = Color(0xFFD32F2F), fontWeight = FontWeight.Medium)
-        }
-    }
-}
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
 
-@Composable
-fun ExpenseDonutChart() {
-    val chartData = remember {
-        listOf(
-            "Education" to 46f,
-            "Shopping" to 22f,
-            "Entertainment" to 13f,
-            "Health" to 10f,
-            "Transport" to 8f,
-            "Food" to 2f
-        )
-    }
-    val colors = remember {
-        listOf(
-            Color(0xFF26A69A),
-            Color(0xFFEC407A),
-            Color(0xFF5C6BC0),
-            Color(0xFFEF5350),
-            Color(0xFF42A5F5),
-            Color(0xFFFFA726)
-        )
-    }
+                Spacer(modifier = Modifier.height(24.dp))
 
-    var selectedCategory by remember { mutableStateOf<String?>(null) }
-    val animationProgress = remember { Animatable(0f) }
+                Text(
+                    "Total Spent this Month",
+                    fontSize = 14.sp,
+                    color = Color.Gray
+                )
 
-    LaunchedEffect(Unit) {
-        animationProgress.animateTo(1f, animationSpec = tween(durationMillis = 1500))
-    }
+                Text(
+                    "₹${totalSpent.toInt()}",
+                    fontSize = 42.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
 
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .size(250.dp)
-            .pointerInput(Unit) {
-                detectTapGestures {
-                    val angle = (atan2(it.y - size.height / 2, it.x - size.width / 2) * (180 / Math.PI)).toFloat()
-                    val normalizedAngle = (angle + 360) % 360
+                Spacer(modifier = Modifier.height(8.dp))
 
-                    var startAngle = -90f
-                    val total = chartData.sumOf { it.second.toDouble() }.toFloat()
+                Surface(
+                    color = Color(0xFFF0F7FF),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(
+                        text = "Daily Average: ₹${dailyAvg.toInt()}",
+                        modifier = Modifier.padding(16.dp),
+                        color = Color(0xFF007AFF),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
 
-                    chartData.forEachIndexed { index, (category, value) ->
-                        val sweepAngle = (value / total) * 360f
-                        if (normalizedAngle in startAngle..startAngle + sweepAngle) {
-                            selectedCategory = if (selectedCategory == category) null else category
+                Spacer(modifier = Modifier.height(48.dp))
+
+                // DONUT CHART
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(220.dp)
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+
+                        val strokeWidth = 36.dp.toPx()
+                        val diameter = size.minDimension - strokeWidth
+                        var startAngle = -90f
+
+                        categorySummary.forEachIndexed { index, cat ->
+
+                            val sweep = animatedSweeps.getOrNull(index) ?: 0f
+
+                            drawArc(
+                                color = cat.color,
+                                startAngle = startAngle,
+                                sweepAngle = sweep,
+                                useCenter = false,
+                                topLeft = Offset(strokeWidth / 2, strokeWidth / 2),
+                                size = Size(diameter, diameter),
+                                style = Stroke(
+                                    width = strokeWidth,
+                                    cap = StrokeCap.Round
+                                )
+                            )
+
+                            startAngle += sweep
                         }
-                        startAngle += sweepAngle
+                    }
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Summary", fontSize = 12.sp, color = Color.Gray)
+                        Text(
+                            "₹${totalSpent.toInt()}",
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
-            }
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) { 
-            val total = chartData.sumOf { it.second.toDouble() }.toFloat()
-            var startAngle = -90f
 
-            chartData.forEachIndexed { index, (category, value) ->
-                val sweepAngle = (value / total) * 360f * animationProgress.value
-                val isSelected = selectedCategory == category
-                val strokeWidth = if (isSelected) 50f else 40f
+                Spacer(modifier = Modifier.height(48.dp))
 
-                drawArc(
-                    color = colors[index],
-                    startAngle = startAngle,
-                    sweepAngle = sweepAngle,
-                    useCenter = false,
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
+                Text(
+                    "Category Breakdown",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.fillMaxWidth()
                 )
-                startAngle += (value / total) * 360f
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                categorySummary.forEach { cat ->
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9F9F9)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+
+                        Column(modifier = Modifier.padding(16.dp)) {
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+
+                                    Box(
+                                        modifier = Modifier
+                                            .size(12.dp)
+                                            .clip(RoundedCornerShape(3.dp))
+                                            .background(cat.color)
+                                    )
+
+                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                    Text(cat.name, fontWeight = FontWeight.Bold)
+                                }
+
+                                Text(
+                                    "₹${cat.amount.toInt()} (${if (totalSpent > 0) (cat.amount / totalSpent * 100).toInt() else 0}%)"
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            LinearProgressIndicator(
+                                progress = { if (totalSpent > 0) cat.amount / totalSpent else 0f },
+                                color = cat.color,
+                                trackColor = Color(0xFFE0E0E0),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
-
-        Text(
-            text = selectedCategory ?: "",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-@Composable
-fun CategoryBreakdown() {
-    val chartData = remember {
-        listOf(
-            "Education" to (584f to Color(0xFF26A69A)),
-            "Shopping" to (279f to Color(0xFFEC407A)),
-            "Entertainment" to (160f to Color(0xFF5C6BC0)),
-            "Health" to (121f to Color(0xFFEF5350)),
-            "Transport" to (96f to Color(0xFF42A5F5)),
-            "Food" to (20f to Color(0xFFFFA726))
-        )
-    }
-    val total = chartData.sumOf { it.second.first.toDouble() }.toFloat()
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text("Category Breakdown", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
-        chartData.forEach { (category, data) ->
-            val (amount, color) = data
-            val percentage = (amount / total) * 100
-            CategoryItem(color = color, category = category, amount = "\$${amount.toInt()}", percentage = "(${percentage.toInt()}%)", progress = { percentage / 100f })
-        }
-    }
-}
-
-@Composable
-fun CategoryItem(color: Color, category: String, amount: String, percentage: String, progress: () -> Float) {
-    Column(modifier = Modifier.padding(vertical = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(8.dp).background(color, CircleShape))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(category, fontWeight = FontWeight.Medium)
-            Spacer(modifier = Modifier.weight(1f))
-            Text(amount, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(percentage, fontSize = 12.sp)
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        LinearProgressIndicator(
-            progress = progress,
-            color = color,
-            trackColor = Color.LightGray.copy(alpha = 0.4f),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(8.dp)
-                .clip(RoundedCornerShape(4.dp))
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun MonthSummaryScreenPreview() {
-    BillpredictorTheme {
-        MonthSummaryScreen(onBackClicked = {}, onAddClicked = {}, currentScreen = Screen.MonthSummary, onNavigate = {})
     }
 }

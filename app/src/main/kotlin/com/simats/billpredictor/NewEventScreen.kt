@@ -1,140 +1,241 @@
 package com.simats.billpredictor
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.simats.billpredictor.network.ExpenseApi
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewEventScreen(
+    userId: Int,
+    api: ExpenseApi,
+    viewModel: ExpenseViewModel,
     onBackClicked: () -> Unit,
-    onSaveEvent: () -> Unit,
-    onCategoryClicked: () -> Unit,
-    selectedCategory: String?,
     currentScreen: Screen,
     onNavigate: (Screen) -> Unit
 ) {
-    var eventName by remember { mutableStateOf("Valentine") }
-    var eventDate by remember { mutableStateOf("2026-02-14") }
-    var estimatedCost by remember { mutableStateOf("1000") }
 
-    val category = remember(selectedCategory) {
-        getCategory(selectedCategory ?: "Food")
+    var eventName by remember { mutableStateOf("") }
+    var eventDate by remember { mutableStateOf("") }
+    var estimatedCost by remember { mutableStateOf("") }
+
+    val isLoading by viewModel.isLoading.collectAsState()
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showConfirmDialog by remember { mutableStateOf(false) }
+
+    val scrollState = rememberScrollState()
+    
+    val todayMillis = System.currentTimeMillis()
+    val datePickerState = rememberDatePickerState(
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                // allow only today & future
+                // subtracting 24 hours in millis to ensure today is definitely selectable regardless of timezone offsets at start of day
+                return utcTimeMillis >= todayMillis - (24 * 60 * 60 * 1000)
+            }
+
+            override fun isSelectableYear(year: Int): Boolean {
+                return year >= Calendar.getInstance().get(Calendar.YEAR)
+            }
+        }
+    )
+
+    // -------- DATE PICKER --------
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                        eventDate = sdf.format(Date(millis))
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    // -------- CONFIRMATION DIALOG --------
+    if (showConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            title = { Text("Confirm Save") },
+            text = { Text("Are you sure you want to save the event?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showConfirmDialog = false
+                        val request = AddEventRequest(
+                            user_id = userId,
+                            event_name = eventName,
+                            event_date = eventDate,
+                            estimated_cost = estimatedCost.toDoubleOrNull() ?: 0.0
+                        )
+                        viewModel.addEvent(request) {
+                            onNavigate(Screen.EventSaved)
+                        }
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("New Event") },
+            CenterAlignedTopAppBar(
+                title = { Text("Add New Event", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClicked) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFF5F5F5))
+                }
             )
         },
         bottomBar = {
-            BottomAppBar(
-                containerColor = Color.White,
-                content = {
-                    BottomNavigationBar(currentScreen, onNavigate)
-                }
+            BottomNavigationBar(
+                currentScreen = currentScreen,
+                onNavigate = onNavigate
             )
         }
     ) { padding ->
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF5F5F5))
                 .padding(padding)
-                .padding(16.dp)
+                .verticalScroll(scrollState)
+                .background(Color.White)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
+
+            // Event Name
             OutlinedTextField(
                 value = eventName,
                 onValueChange = { eventName = it },
                 label = { Text("Event Name") },
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White
-                )
+                modifier = Modifier.fillMaxWidth()
             )
-            Spacer(modifier = Modifier.height(16.dp))
+
+            // Event Date
             OutlinedTextField(
                 value = eventDate,
-                onValueChange = { eventDate = it },
-                label = { Text("Event Date") },
-                trailingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = "Select Date") },
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White
-                )
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Event Date (YYYY-MM-DD)") },
+                trailingIcon = {
+                    Icon(
+                        Icons.Default.CalendarToday,
+                        contentDescription = null,
+                        modifier = Modifier.clickable { showDatePicker = true }
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showDatePicker = true }
             )
-            Spacer(modifier = Modifier.height(16.dp))
+
+            // Estimated Cost
             OutlinedTextField(
                 value = estimatedCost,
                 onValueChange = { estimatedCost = it },
-                label = { Text("Estimated Cost ($)") },
+                label = { Text("Estimated Cost (₹)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White
-                )
+                modifier = Modifier.fillMaxWidth()
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            ExpenseDetailRow(icon = category.icon, text = category.name, actionText = "Change", onClick = onCategoryClicked)
-            Spacer(modifier = Modifier.height(24.dp))
-            PredictionImpactCard(eventName, estimatedCost)
-            Spacer(modifier = Modifier.weight(1f))
+
+            // Prediction Impact Card
+            if (eventName.isNotBlank() && eventDate.isNotBlank() && estimatedCost.isNotBlank()) {
+                val monthName = try {
+                    val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(eventDate)
+                    SimpleDateFormat("MMMM", Locale.getDefault()).format(date!!)
+                } catch (e: Exception) {
+                    "this month"
+                }
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            buildAnnotatedString {
+                                append("Adding \"")
+                                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                                    append(eventName)
+                                }
+                                append("\" will increase your ")
+                                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                                    append(monthName)
+                                }
+                                append(" prediction by ")
+                                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                                    append("₹$estimatedCost")
+                                }
+                                append(".")
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // SAVE BUTTON
             Button(
-                onClick = onSaveEvent,
+                onClick = {
+                    if (eventName.isNotBlank() && eventDate.isNotBlank()) {
+                        showConfirmDialog = true
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4285F4)),
-                shape = RoundedCornerShape(16.dp)
+                    .height(55.dp),
+                enabled = !isLoading && eventName.isNotBlank() && eventDate.isNotBlank() && estimatedCost.toDoubleOrNull() != null
             ) {
-                Text("Save Event")
+
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(22.dp)
+                    )
+                } else {
+                    Text("Save Event")
+                }
             }
         }
     }
-}
-
-@Composable
-fun PredictionImpactCard(eventName: String, cost: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9C4))
-    ) {
-        Row(modifier = Modifier.padding(16.dp)) {
-            Icon(Icons.Default.BarChart, contentDescription = "Prediction Impact", tint = Color(0xFFFBC02D))
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text("Prediction Impact", fontWeight = FontWeight.Bold)
-                Text("Adding \"$eventName\" will increase your February 2026 prediction by \$$cost.")
-            }
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun NewEventScreenPreview() {
-    NewEventScreen(onBackClicked = {}, onSaveEvent = {}, onCategoryClicked = {}, selectedCategory = "Food", currentScreen = Screen.Home, onNavigate = {})
 }

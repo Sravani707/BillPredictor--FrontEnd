@@ -41,11 +41,9 @@ fun SelectDateScreen(
             )
         },
         bottomBar = {
-            BottomAppBar(
-                containerColor = Color.White,
-                content = {
-                    BottomNavigationBar(currentScreen, onNavigate)
-                }
+            BottomNavigationBar(
+                currentScreen = currentScreen,
+                onNavigate = onNavigate
             )
         }
     ) { padding ->
@@ -127,5 +125,10 @@ fun SelectDateScreen(
 @Preview(showBackground = true)
 @Composable
 fun SelectDateScreenPreview() {
-    SelectDateScreen(onBackClicked = {}, onDateSelected = {}, currentScreen = Screen.Home, onNavigate = {})
+    SelectDateScreen(
+        onBackClicked = {},
+        onDateSelected = {},
+        currentScreen = Screen.Home,
+        onNavigate = { _: Screen -> }
+    )
 }

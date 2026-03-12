@@ -1,315 +1,313 @@
 package com.simats.billpredictor
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.simats.billpredictor.ui.theme.BillpredictorTheme
-import kotlinx.coroutines.delay
-
-sealed class Screen {
-    object Splash : Screen()
-    object Onboarding : Screen()
-    object FeatureOnboarding1 : Screen()
-    object FeatureOnboarding2 : Screen()
-    object FeatureOnboarding3 : Screen()
-    object Register : Screen()
-    object Login : Screen()
-    object ForgotPassword : Screen()
-    object Home : Screen()
-    object MonthSummary : Screen()
-    object Prediction : Screen()
-    data class AddExpense(val selectedCategory: String? = null, val selectedDate: Long? = null, val note: String? = null) : Screen()
-    object SelectCategory : Screen()
-    object SelectDate : Screen()
-    data class AddNote(val initialNote: String) : Screen()
-    data class NewEvent(val selectedCategory: String? = null) : Screen()
-    object SelectEventCategory : Screen()
-    object EventSaved : Screen()
-    object SpecialEvents : Screen()
-    object TrendingUp : Screen()
-    object TrendingDown : Screen()
-    object ExpenseTrends : Screen()
-    object MarchForecast : Screen()
-    object CalculationLogic : Screen()
-    object HelpAndFaq : Screen()
-    object About : Screen()
-    object PrivacyPolicy : Screen()
-    object ContactSupport : Screen()
-    object History : Screen()
-    object Profile : Screen()
-    object EditProfile : Screen()
-}
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.simats.billpredictor.model.ExpenseItem
+import com.simats.billpredictor.network.RetrofitClient
+import com.simats.billpredictor.network.ExpenseApi
+import com.simats.billpredictor.utils.NotificationHelper
+import com.simats.billpredictor.utils.SmartReminderWorker
+import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
+
+    private val apiService: ExpenseApi by lazy { RetrofitClient.instance }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Request notification permission for Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    101
+                )
+            }
+        }
+
+        // Schedule Daily Smart Check for Reminders
+        val workRequest = PeriodicWorkRequestBuilder<SmartReminderWorker>(
+            1, TimeUnit.DAYS
+        ).build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "smart_reminder",
+            ExistingPeriodicWorkPolicy.KEEP,
+            workRequest
+        )
+
+        // TEMPORARY: Run worker immediately for testing
+        val testWork = OneTimeWorkRequestBuilder<SmartReminderWorker>().build()
+        WorkManager.getInstance(this).enqueue(testWork)
+
+        // TEMPORARY: Test notification immediately
+        NotificationHelper.showNotification(
+            this,
+            "ExpenseAI Test",
+            "If you see this, notifications work ✅"
+        )
+
         setContent {
-            BillpredictorTheme {
-                var currentScreen by remember { mutableStateOf<Screen>(Screen.Splash) }
+            val navController = rememberNavController()
+            val userId = remember { mutableIntStateOf(-1) }
+            val userName = remember { mutableStateOf("") }
+            var currentScreen by remember { mutableStateOf<Screen>(Screen.Home) }
 
-                val navigateTo = { screen: Screen -> currentScreen = screen }
+            val expenseViewModel: ExpenseViewModel = viewModel(
+                factory = ExpenseViewModelFactory(apiService)
+            )
 
-                when (val screen = currentScreen) {
-                    is Screen.Splash -> SplashScreen { navigateTo(Screen.Onboarding) }
-                    is Screen.Onboarding -> OnboardingScreen { navigateTo(Screen.FeatureOnboarding1) }
-                    is Screen.FeatureOnboarding1 -> FeatureOnboardingScreen(
-                        onNextClicked = { navigateTo(Screen.FeatureOnboarding2) },
-                        onSkipClicked = { navigateTo(Screen.Register) }
+            NavHost(
+                navController = navController, 
+                startDestination = "splash",
+                enterTransition = { EnterTransition.None },
+                exitTransition = { ExitTransition.None }
+            ) {
+
+                composable("splash") {
+                    SplashScreen(onTimeout = {
+                        navController.navigate("onboarding") {
+                            popUpTo("splash") { inclusive = true }
+                        }
+                    })
+                }
+
+                composable("onboarding") {
+                    OnboardingScreen(onContinueClicked = {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo("onboarding") { inclusive = true }
+                        }
+                    })
+                }
+
+                composable(Screen.Login.route) {
+                    LoginScreen(
+                        onBackClicked = { navController.popBackStack() },
+                        onRegisterClicked = { navController.navigate(Screen.Register.route) },
+                        onForgotPasswordClicked = { navController.navigate(Screen.ForgotPassword.route) },
+                        onLoginSuccess = { name, id ->
+                            userName.value = name
+                            userId.intValue = id
+                            navController.navigate(Screen.Home.route) {
+                                popUpTo(Screen.Login.route) { inclusive = true }
+                            }
+                        }
                     )
-                    is Screen.FeatureOnboarding2 -> PredictionOnboardingScreen(
-                        onNextClicked = { navigateTo(Screen.FeatureOnboarding3) },
-                        onSkipClicked = { navigateTo(Screen.Register) }
+                }
+
+                composable(Screen.Register.route) {
+                    RegisterScreen(
+                        onLoginClicked = { navController.popBackStack() },
+                        onRegisterSuccess = { navController.navigate(Screen.Login.route) }
                     )
-                    is Screen.FeatureOnboarding3 -> PlanningOnboardingScreen(
-                        onGetStartedClicked = { navigateTo(Screen.Register) },
-                        onSkipClicked = { navigateTo(Screen.Register) }
+                }
+
+                composable(Screen.ForgotPassword.route) {
+                    ForgotPasswordScreen(navController = navController)
+                }
+
+                composable(
+                    route = Screen.Otp.route,
+                    arguments = listOf(navArgument("email") { type = NavType.StringType })
+                ) { backStackEntry ->
+                    val email = backStackEntry.arguments?.getString("email") ?: ""
+                    OtpScreen(navController = navController, email = email)
+                }
+
+                composable(
+                    route = Screen.ResetPassword.route,
+                    arguments = listOf(navArgument("email") { type = NavType.StringType })
+                ) { backStackEntry ->
+                    val email = backStackEntry.arguments?.getString("email") ?: ""
+                    ResetPasswordScreen(navController = navController, email = email)
+                }
+
+                composable(Screen.Home.route) {
+                    HomeScreen(
+                        userName = userName.value,
+                        userId = userId.intValue,
+                        api = apiService,
+                        viewModel = expenseViewModel,
+                        onMonthSummaryClick = { navController.navigate(Screen.MonthSummary.route) },
+                        onPredictClick = { },
+                        onNavigate = { screen -> navController.navigate(screen.route) },
+                        navController = navController
                     )
-                    is Screen.Register -> RegisterScreen(
-                        onBackClicked = { navigateTo(Screen.FeatureOnboarding3) },
-                        onLoginClicked = { navigateTo(Screen.Login) },
-                        onRegisterClicked = { navigateTo(Screen.Home) }
+                }
+
+                composable(Screen.MonthSummary.route) {
+                    MonthlySummaryScreen(
+                        userId = userId.intValue,
+                        api = apiService,
+                        onBackClicked = { navController.popBackStack() },
+                        currentScreen = Screen.MonthSummary,
+                        onNavigate = { screen -> navController.navigate(screen.route) }
                     )
-                    is Screen.Login -> LoginScreen(
-                        onBackClicked = { navigateTo(Screen.Register) },
-                        onRegisterClicked = { navigateTo(Screen.Register) },
-                        onForgotPasswordClicked = { navigateTo(Screen.ForgotPassword) },
-                        onLoginClicked = { navigateTo(Screen.Home) }
+                }
+
+                composable(Screen.AddExpense.route) {
+                    val expenseItem = navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.get<ExpenseItem>("expenseItem")
+                    AddExpenseScreen(
+                        userId = userId.intValue,
+                        expenseId = expenseItem?.realId,
+                        initialAmount = expenseItem?.amount ?: "",
+                        initialCategoryName = expenseItem?.categoryName ?: "",
+                        viewModel = expenseViewModel,
+                        onBackClicked = { navController.popBackStack() }
                     )
-                    is Screen.ForgotPassword -> ForgotPasswordScreen { navigateTo(Screen.Login) }
-                    is Screen.Home -> HomeScreen(
-                        onSummaryClicked = { navigateTo(Screen.MonthSummary) },
-                        onPredictClicked = { navigateTo(Screen.Prediction) },
-                        onAddClicked = { navigateTo(Screen.AddExpense()) },
-                        onTrendsClicked = { navigateTo(Screen.ExpenseTrends) },
-                        onViewAllClicked = { navigateTo(Screen.History) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
+                }
+
+                composable(Screen.AddIncome.route) {
+                    AddIncomeScreen(
+                        userId = userId.intValue,
+                        api = apiService,
+                        onBackClicked = { navController.popBackStack() }
                     )
-                    is Screen.MonthSummary -> MonthSummaryScreen(
-                        onBackClicked = { navigateTo(Screen.Home) },
-                        onAddClicked = { navigateTo(Screen.AddExpense()) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
+                }
+
+                composable(Screen.AddNotes.route) {
+                    AddNotesScreen(
+                        navController = navController,
+                        expenseId = null,
+                        viewModel = expenseViewModel
                     )
-                    is Screen.Prediction -> PredictionScreen(
-                        onBackClicked = { navigateTo(Screen.Home) },
-                        onAddEventClicked = { navigateTo(Screen.NewEvent()) },
-                        onTrendingUpClicked = { navigateTo(Screen.TrendingUp) },
-                        onTrendingDownClicked = { navigateTo(Screen.TrendingDown) },
-                        onMarchForecastClicked = { navigateTo(Screen.MarchForecast) },
-                        onCalculationClicked = { navigateTo(Screen.CalculationLogic) },
-                        onAddClicked = { navigateTo(Screen.AddExpense()) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
+                }
+
+                composable(Screen.Prediction.route) {
+                    PredictionScreen(
+                        userId = userId.intValue,
+                        api = apiService,
+                        viewModel = expenseViewModel,
+                        onBackClicked = { navController.popBackStack() },
+                        currentScreen = Screen.Prediction,
+                        onNavigate = { screen -> navController.navigate(screen.route) }
                     )
-                    is Screen.AddExpense -> AddExpenseScreen(
-                        onBackClicked = { navigateTo(Screen.Home) },
-                        onCategoryClicked = { navigateTo(Screen.SelectCategory) },
-                        onDateClicked = { navigateTo(Screen.SelectDate) },
-                        onNotesClicked = { note -> navigateTo(Screen.AddNote(note)) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo,
-                        selectedCategory = screen.selectedCategory,
-                        selectedDate = screen.selectedDate,
-                        note = screen.note
+                }
+
+                composable(Screen.CalculationLogic.route) {
+                    CalculationLogicScreen(
+                        onBackClicked = { navController.popBackStack() },
+                        currentScreen = currentScreen,
+                        onNavigate = { screen ->
+                            currentScreen = screen
+                        }
                     )
-                    is Screen.SelectCategory -> SelectCategoryScreen(
-                        onBackClicked = { navigateTo(Screen.AddExpense()) },
-                        onCategorySelected = { category -> navigateTo(Screen.AddExpense(category)) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
+                }
+
+                composable(Screen.NewEvent.route) {
+                    NewEventScreen(
+                        userId = userId.intValue,
+                        api = apiService,
+                        viewModel = expenseViewModel,
+                        onBackClicked = { navController.popBackStack() },
+                        currentScreen = Screen.NewEvent,
+                        onNavigate = { screen -> navController.navigate(screen.route) }
                     )
-                    is Screen.SelectDate -> SelectDateScreen(
-                        onBackClicked = { navigateTo(Screen.AddExpense()) },
-                        onDateSelected = { date -> navigateTo(Screen.AddExpense(selectedDate = date)) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
+                }
+
+                composable(Screen.EventSaved.route) {
+                    EventSavedScreen(
+                        onAddAnotherEvent = {
+                            navController.navigate(Screen.NewEvent.route) {
+                                popUpTo(Screen.EventSaved.route) { inclusive = true }
+                            }
+                        },
+                        onViewAllEvents = { navController.navigate(Screen.SpecialEvents.route) },
+                        onSeePrediction = { navController.navigate(Screen.Prediction.route) }
                     )
-                    is Screen.AddNote -> AddNotesScreen(
-                        onBackClicked = { navigateTo(Screen.AddExpense()) },
-                        onSaveNote = { note -> navigateTo(Screen.AddExpense(note = note)) },
-                        initialNote = screen.initialNote,
-                        currentScreen = screen,
-                        onNavigate = navigateTo
+                }
+
+                composable(Screen.SpecialEvents.route) {
+                    SpecialEventsScreen(
+                        navController = navController,
+                        userId = userId.intValue,
+                        api = apiService,
+                        viewModel = expenseViewModel,
+                        onBackClicked = { navController.popBackStack() },
+                        onAddEventClicked = { navController.navigate(Screen.NewEvent.route) },
+                        currentScreen = Screen.SpecialEvents,
+                        onNavigate = { screen -> navController.navigate(screen.route) }
                     )
-                    is Screen.NewEvent -> NewEventScreen(
-                        onBackClicked = { navigateTo(Screen.Prediction) },
-                        onSaveEvent = { navigateTo(Screen.EventSaved) },
-                        onCategoryClicked = { navigateTo(Screen.SelectEventCategory) },
-                        selectedCategory = screen.selectedCategory,
-                        currentScreen = screen,
-                        onNavigate = navigateTo
+                }
+
+                composable(
+                    route = Screen.EventSavingsPlanner.route,
+                    arguments = listOf(
+                        navArgument("userId") { type = NavType.IntType },
+                        navArgument("eventId") { type = NavType.IntType }
                     )
-                    is Screen.SelectEventCategory -> SelectEventCategoryScreen(
-                        onBackClicked = { navigateTo(Screen.NewEvent()) },
-                        onCategorySelected = { category -> navigateTo(Screen.NewEvent(category)) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
+                ) { backStackEntry ->
+                    val userIdArg = backStackEntry.arguments?.getInt("userId") ?: 0
+                    val eventIdArg = backStackEntry.arguments?.getInt("eventId") ?: 0
+                    EventSavingsPlannerScreen(
+                        navController = navController,
+                        userId = userIdArg,
+                        eventId = eventIdArg,
+                        viewModel = expenseViewModel
                     )
-                    is Screen.EventSaved -> EventSavedScreen(
-                        onAddAnotherEvent = { navigateTo(Screen.NewEvent()) },
-                        onViewAllEvents = { navigateTo(Screen.SpecialEvents) },
-                        onSeePrediction = { navigateTo(Screen.Prediction) }
+                }
+
+                composable(Screen.Profile.route) {
+                    ProfileScreen(
+                        userName = userName.value,
+                        onBackClicked = { navController.popBackStack() },
+                        onHelpClicked = { navController.navigate(Screen.HelpAndFaq.route) },
+                        onAboutClicked = { navController.navigate(Screen.About.route) },
+                        onPrivacyPolicyClicked = { navController.navigate(Screen.PrivacyPolicy.route) },
+                        onContactSupportClicked = { navController.navigate(Screen.ContactSupport.route) },
+                        onLogoutClicked = {
+                            userId.intValue = -1
+                            userName.value = ""
+                            navController.navigate(Screen.Login.route) {
+                                popUpTo(Screen.Home.route) { inclusive = true }
+                            }
+                        },
+                        currentScreen = Screen.Profile,
+                        onNavigate = { screen -> navController.navigate(screen.route) }
                     )
-                    is Screen.SpecialEvents -> SpecialEventsScreen(
-                        onBackClicked = { navigateTo(Screen.EventSaved) },
-                        onAddEventClicked = { navigateTo(Screen.NewEvent()) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
-                    )
-                    is Screen.TrendingUp -> TrendingUpScreen(
-                        onBackClicked = { navigateTo(Screen.Prediction) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
-                    )
-                    is Screen.TrendingDown -> TrendingDownScreen(
-                        onBackClicked = { navigateTo(Screen.Prediction) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
-                    )
-                    is Screen.ExpenseTrends -> ExpenseTrendsScreen(
-                        onBackClicked = { navigateTo(Screen.Home) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
-                    )
-                    is Screen.MarchForecast -> MarchForecastScreen(
-                        onBackClicked = { navigateTo(Screen.Prediction) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
-                    )
-                    is Screen.CalculationLogic -> CalculationLogicScreen(
-                        onBackClicked = { navigateTo(Screen.Prediction) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
-                    )
-                    is Screen.History -> HistoryScreen(
-                        onBackClicked = { navigateTo(Screen.Home) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
-                    )
-                    is Screen.Profile -> ProfileScreen(
-                        onBackClicked = { navigateTo(Screen.Home) },
-                        onEditProfileClicked = { navigateTo(Screen.EditProfile) },
-                        onHelpClicked = { navigateTo(Screen.HelpAndFaq) },
-                        onAboutClicked = { navigateTo(Screen.About) },
-                        onPrivacyPolicyClicked = { navigateTo(Screen.PrivacyPolicy) },
-                        onContactSupportClicked = { navigateTo(Screen.ContactSupport) },
-                        onLogoutClicked = { navigateTo(Screen.Login) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
-                    )
-                    is Screen.EditProfile -> EditProfileScreen(
-                        onBackClicked = { navigateTo(Screen.Profile) },
-                        onSaveClicked = { navigateTo(Screen.Profile) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
-                    )
-                    is Screen.HelpAndFaq -> HelpAndFaqScreen(
-                        onBackClicked = { navigateTo(Screen.Profile) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
-                    )
-                    is Screen.About -> AboutScreen(
-                        onBackClicked = { navigateTo(Screen.Profile) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
-                    )
-                    is Screen.PrivacyPolicy -> PrivacyPolicyScreen(
-                        onBackClicked = { navigateTo(Screen.Profile) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
-                    )
-                    is Screen.ContactSupport -> ContactSupportScreen(
-                        onBackClicked = { navigateTo(Screen.Profile) },
-                        currentScreen = screen,
-                        onNavigate = navigateTo
-                    )
+                }
+
+                composable(Screen.HelpAndFaq.route) {
+                    HelpAndFaqScreen(onBackClicked = { navController.popBackStack() })
+                }
+
+                composable(Screen.About.route) {
+                    AboutScreen(onBackClicked = { navController.popBackStack() })
+                }
+
+                composable(Screen.PrivacyPolicy.route) {
+                    PrivacyPolicyScreen(onBackClicked = { navController.popBackStack() })
+                }
+
+                composable(Screen.ContactSupport.route) {
+                    ContactSupportScreen(onBackClicked = { navController.popBackStack() })
                 }
             }
         }
-    }
-}
-
-@Composable
-fun SplashScreen(onTimeout: () -> Unit) {
-    var startAnimation by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(
-        targetValue = if (startAnimation) 1f else 0.8f,
-        animationSpec = tween(durationMillis = 500)
-    )
-    val alpha by animateFloatAsState(
-        targetValue = if (startAnimation) 1f else 0f,
-        animationSpec = tween(durationMillis = 500)
-    )
-
-    LaunchedEffect(Unit) {
-        startAnimation = true
-        delay(2000)
-        onTimeout()
-    }
-
-    Surface(
-        color = Color.White,
-        modifier = Modifier.fillMaxSize()
-    ) {
-        Column(
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                imageVector = Icons.Default.AccountBalanceWallet,
-                contentDescription = "Wallet Icon",
-                modifier = Modifier
-                    .padding(bottom = 16.dp)
-                    .scale(scale)
-                    .alpha(alpha),
-                tint = Color(0xFF4285F4)
-            )
-            Text(
-                text = "ExpenseAI",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF4285F4),
-                modifier = Modifier
-                    .scale(scale)
-                    .alpha(alpha)
-            )
-            Text(
-                text = "Smart Expense Tracking",
-                fontSize = 16.sp,
-                modifier = Modifier
-                    .scale(scale)
-                    .alpha(alpha)
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun SplashScreenPreview() {
-    BillpredictorTheme {
-        SplashScreen {}
     }
 }

@@ -1,96 +1,77 @@
 package com.simats.billpredictor
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.simats.billpredictor.ui.theme.BillpredictorTheme
+import androidx.navigation.NavController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddNotesScreen(
-    onBackClicked: () -> Unit,
-    onSaveNote: (String) -> Unit,
-    initialNote: String,
-    currentScreen: Screen,
-    onNavigate: (Screen) -> Unit
+    navController: NavController, // use NavController for navigation
+    expenseId: Int? = null, // if you want to attach notes to an expense
+    viewModel: ExpenseViewModel
 ) {
-    var note by remember { mutableStateOf(initialNote) }
+    var noteText by remember { mutableStateOf("") }
+    val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Add Notes") },
+                title = { Text(if (expenseId == null) "Add Note" else "Edit Note") },
                 navigationIcon = {
-                    IconButton(onClick = onBackClicked) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFF5F5F5))
-            )
-        },
-        bottomBar = {
-            BottomAppBar(
-                containerColor = Color.White,
-                content = {
-                    BottomNavigationBar(currentScreen, onNavigate)
                 }
             )
         }
     ) { padding ->
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF5F5F5))
                 .padding(padding)
-                .padding(16.dp)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Text("Enter your note:", style = MaterialTheme.typography.titleMedium)
+
             OutlinedTextField(
-                value = note,
-                onValueChange = { if (it.length <= 200) note = it },
+                value = noteText,
+                onValueChange = { noteText = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
-                placeholder = { Text("Add details about this expense...") },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    disabledContainerColor = Color.White,
-                )
+                    .height(150.dp),
+                placeholder = { Text("Type your note here...") }
             )
-            Text(
-                text = "${note.length}/200",
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.End
-            )
-            Spacer(modifier = Modifier.height(16.dp))
+
             Button(
-                onClick = { onSaveNote(note) },
+                onClick = {
+                    // TODO: Call your ViewModel function to save note
+                    // Example:
+                    // viewModel.addNote(expenseId, noteText) { navController.popBackStack() }
+                    navController.popBackStack() // remove after adding backend logic
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4285F4)),
-                shape = RoundedCornerShape(16.dp)
+                enabled = !isLoading
             ) {
-                Text("Save Note")
+                Text(if (expenseId == null) "Add Note" else "Update Note")
             }
-        }
-    }
-}
 
-@Preview(showBackground = true)
-@Composable
-fun AddNotesScreenPreview() {
-    BillpredictorTheme {
-        AddNotesScreen(onBackClicked = {}, onSaveNote = {}, initialNote = "", currentScreen = Screen.Home, onNavigate = {})
+            if (isLoading) CircularProgressIndicator()
+            errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        }
     }
 }

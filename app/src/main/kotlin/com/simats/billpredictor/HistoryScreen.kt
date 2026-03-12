@@ -1,8 +1,10 @@
 package com.simats.billpredictor
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DirectionsBus
@@ -12,19 +14,35 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.simats.billpredictor.ui.theme.BillpredictorTheme
+import com.simats.billpredictor.network.ExpenseApi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
+    userId: Int,
+    api: ExpenseApi,
     onBackClicked: () -> Unit,
     currentScreen: Screen,
     onNavigate: (Screen) -> Unit
 ) {
+
+    var expenses by remember { mutableStateOf<List<ExpenseItemResponse>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(userId) {
+        isLoading = true
+        try {
+            val response = api.getHistory(userId)
+            expenses = response.expenses
+            Log.d("HistoryScreen", "History loaded: ${response.expenses.size} items")
+        } catch (e: Exception) {
+            Log.e("HistoryScreen", "History API failed: ${e.message}")
+        } finally {
+            isLoading = false
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -33,19 +51,17 @@ fun HistoryScreen(
                     IconButton(onClick = onBackClicked) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFF5F5F5))
+                }
             )
         },
         bottomBar = {
-            BottomAppBar(
-                containerColor = Color.White,
-                content = {
-                    BottomNavigationBar(currentScreen, onNavigate)
-                }
+            BottomNavigationBar(
+                currentScreen = currentScreen,
+                onNavigate = onNavigate
             )
         }
     ) { padding ->
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -53,29 +69,47 @@ fun HistoryScreen(
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            item { Text("Today", fontWeight = FontWeight.Bold, fontSize = 20.sp) }
-            item { Spacer(modifier = Modifier.height(8.dp)) }
-            item {
-                ExpenseItem(icon = Icons.Default.School, category = "Education", date = "", amount = "-\$80", color = Color(0xFFE8F5E9), iconColor = Color(0xFF34A853))
-            }
 
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-            item { Text("Yesterday", fontWeight = FontWeight.Bold, fontSize = 20.sp) }
-            item { Spacer(modifier = Modifier.height(8.dp)) }
-            item {
-                ExpenseItem(icon = Icons.Default.DirectionsBus, category = "Transport", date = "", amount = "-\$8", color = Color(0xFFE3F2FD), iconColor = Color(0xFF4285F4))
-            }
-            item {
-                ExpenseItem(icon = Icons.Default.Fastfood, category = "Food", date = "", amount = "-\$20", color = Color(0xFFFFF9C4), iconColor = Color(0xFFFBC02D))
+            if (isLoading) {
+                item {
+                    CircularProgressIndicator()
+                }
+            } else if (expenses.isEmpty()) {
+                item {
+                    Text("No expense history found.")
+                }
+            } else {
+                items(expenses) { expense ->
+
+                    val safeCategory = expense.category_name ?: "Other"
+                    val safeAmount = expense.amount
+
+                    ExpenseItem(
+                        icon = when (safeCategory.lowercase()) {
+                            "education" -> Icons.Default.School
+                            "transport" -> Icons.Default.DirectionsBus
+                            "food" -> Icons.Default.Fastfood
+                            else -> Icons.Default.Fastfood
+                        },
+                        category = safeCategory,
+                        date = "", // Date hidden from History Screen
+                        amount = "-₹$safeAmount",
+                        color = Color(0xFFE3F2FD),
+                        iconColor = Color(0xFF4285F4)
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
             }
         }
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun HistoryScreenPreview() {
-    BillpredictorTheme {
-        HistoryScreen(onBackClicked = {}, currentScreen = Screen.History, onNavigate = {})
+fun mapToCategorySummary(expenses: List<ExpenseItemResponse>): List<CategorySummary> {
+    return expenses.map {
+        CategorySummary(
+            amount = it.amount?.toDoubleOrNull() ?: 0.0,
+            name = it.category_name ?: "Other"
+        )
     }
 }

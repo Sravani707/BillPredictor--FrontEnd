@@ -24,13 +24,13 @@ fun BottomNavigationBar(currentScreen: Screen, onNavigate: (Screen) -> Unit) {
         NavigationBarItem(
             icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
             label = { Text("Home") },
-            selected = currentScreen is Screen.Home,
+            selected = currentScreen == Screen.Home,
             onClick = { onNavigate(Screen.Home) }
         )
         NavigationBarItem(
             icon = { Icon(Icons.Default.History, contentDescription = "History") },
             label = { Text("History") },
-            selected = currentScreen is Screen.History,
+            selected = currentScreen == Screen.History,
             onClick = { onNavigate(Screen.History) }
         )
         // This is a placeholder for the FAB
@@ -38,13 +38,13 @@ fun BottomNavigationBar(currentScreen: Screen, onNavigate: (Screen) -> Unit) {
         NavigationBarItem(
             icon = { Icon(Icons.Default.Psychology, contentDescription = "Predict") },
             label = { Text("Predict") },
-            selected = currentScreen is Screen.Prediction,
+            selected = currentScreen == Screen.Prediction,
             onClick = { onNavigate(Screen.Prediction) }
         )
         NavigationBarItem(
             icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
             label = { Text("Profile") },
-            selected = currentScreen is Screen.Profile,
+            selected = currentScreen == Screen.Profile,
             onClick = { onNavigate(Screen.Profile) }
         )
     }

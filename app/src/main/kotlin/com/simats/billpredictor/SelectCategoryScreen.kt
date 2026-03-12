@@ -53,11 +53,9 @@ fun SelectCategoryScreen(
             )
         },
         bottomBar = {
-            BottomAppBar(
-                containerColor = Color.White,
-                content = {
-                    BottomNavigationBar(currentScreen, onNavigate)
-                }
+            BottomNavigationBar(
+                currentScreen = currentScreen,
+                onNavigate = onNavigate
             )
         }
     ) { padding ->
@@ -111,5 +109,10 @@ fun CategoryGridItem(category: Category, onCategorySelected: (String) -> Unit) {
 @Preview(showBackground = true)
 @Composable
 fun SelectCategoryScreenPreview() {
-    SelectCategoryScreen(onBackClicked = {}, onCategorySelected = {}, currentScreen = Screen.Home, onNavigate = {})
+    SelectCategoryScreen(
+        onBackClicked = {},
+        onCategorySelected = {},
+        currentScreen = Screen.Home,
+        onNavigate = { _: Screen -> }
+    )
 }
