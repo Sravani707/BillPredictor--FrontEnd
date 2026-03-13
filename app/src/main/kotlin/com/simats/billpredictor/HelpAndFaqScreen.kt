@@ -43,8 +43,8 @@ fun HelpAndFaqScreen(onBackClicked: () -> Unit) {
             Spacer(modifier = Modifier.height(24.dp))
 
             FAQItem(
-                question = "What is ExpenseAI?",
-                answer = "ExpenseAI is a smart expense management app that helps you track your daily spending and predicts your future bills using AI based on your history and upcoming events."
+                question = "What is AIMint?",
+                answer = "AIMint is a smart expense management app that helps you track your daily spending and predicts your future bills using AI based on your history and upcoming events."
             )
 
             FAQItem(

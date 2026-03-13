@@ -52,7 +52,7 @@ fun OnboardingScreen(onContinueClicked: () -> Unit) {
     val pages = listOf(
         OnboardingPage(
             icon = Icons.Outlined.AccountBalanceWallet,
-            title = "Welcome to ExpenseAI",
+            title = "Welcome to AIMint",
             description = "Track your spending, predict future expenses, and save more with AI-powered insights."
         ),
         OnboardingPage(

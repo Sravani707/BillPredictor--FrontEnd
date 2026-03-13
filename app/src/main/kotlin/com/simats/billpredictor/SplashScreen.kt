@@ -26,8 +26,8 @@ fun SplashScreen(onTimeout: () -> Unit) {
         onTimeout()
     }
 
-    // A cream/off-white background color similar to the design
-    val backgroundColor = Color(0xFFF7F7F2)
+    // Set background color to white
+    val backgroundColor = Color.White
 
     Column(
         modifier = Modifier
@@ -38,7 +38,7 @@ fun SplashScreen(onTimeout: () -> Unit) {
     ) {
         // Main content (Logo)
         Image(
-            painter = painterResource(id = R.drawable.expenseai_logo),
+            painter = painterResource(id = R.drawable.aimint_logo),
             contentDescription = "ExpenseAI Logo",
             modifier = Modifier
                 .size(300.dp),

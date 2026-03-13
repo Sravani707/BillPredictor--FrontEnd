@@ -66,7 +66,7 @@ class MainActivity : ComponentActivity() {
         // TEMPORARY: Test notification immediately
         NotificationHelper.showNotification(
             this,
-            "ExpenseAI Test",
+            "AIMint Test",
             "If you see this, notifications work ✅"
         )
 
@@ -158,6 +158,16 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
+                composable(Screen.History.route) {
+                    HistoryScreen(
+                        userId = userId.intValue,
+                        api = apiService,
+                        onBackClicked = { navController.popBackStack() },
+                        currentScreen = Screen.History,
+                        onNavigate = { screen -> navController.navigate(screen.route) }
+                    )
+                }
+
                 composable(Screen.MonthSummary.route) {
                     MonthlySummaryScreen(
                         userId = userId.intValue,
@@ -205,6 +215,26 @@ class MainActivity : ComponentActivity() {
                         viewModel = expenseViewModel,
                         onBackClicked = { navController.popBackStack() },
                         currentScreen = Screen.Prediction,
+                        onNavigate = { screen -> navController.navigate(screen.route) }
+                    )
+                }
+
+                composable(Screen.TrendingUp.route) {
+                    TrendingUpScreen(
+                        userId = userId.intValue,
+                        viewModel = expenseViewModel,
+                        onBackClicked = { navController.popBackStack() },
+                        currentScreen = Screen.TrendingUp,
+                        onNavigate = { screen -> navController.navigate(screen.route) }
+                    )
+                }
+
+                composable(Screen.TrendingDown.route) {
+                    TrendingDownScreen(
+                        userId = userId.intValue,
+                        viewModel = expenseViewModel,
+                        onBackClicked = { navController.popBackStack() },
+                        currentScreen = Screen.TrendingDown,
                         onNavigate = { screen -> navController.navigate(screen.route) }
                     )
                 }
