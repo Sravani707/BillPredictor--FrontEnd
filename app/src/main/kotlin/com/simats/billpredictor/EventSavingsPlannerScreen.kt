@@ -36,10 +36,7 @@ fun EventSavingsPlannerScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("Event Savings Planner")
-                        Text("Event ID: $eventId", style = MaterialTheme.typography.labelSmall)
-                    }
+                    Text("Event Savings Planner")
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {

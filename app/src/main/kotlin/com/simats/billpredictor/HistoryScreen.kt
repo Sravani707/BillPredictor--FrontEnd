@@ -1,6 +1,5 @@
 package com.simats.billpredictor
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,34 +11,26 @@ import androidx.compose.material.icons.filled.Fastfood
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.simats.billpredictor.network.ExpenseApi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
     userId: Int,
-    api: ExpenseApi,
+    viewModel: ExpenseViewModel,
     onBackClicked: () -> Unit,
     currentScreen: Screen,
     onNavigate: (Screen) -> Unit
 ) {
-
-    var expenses by remember { mutableStateOf<List<ExpenseItemResponse>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    val expenses by viewModel.expenses.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     LaunchedEffect(userId) {
-        isLoading = true
-        try {
-            val response = api.getHistory(userId)
-            expenses = response.expenses
-            Log.d("HistoryScreen", "History loaded: ${response.expenses.size} items")
-        } catch (e: Exception) {
-            Log.e("HistoryScreen", "History API failed: ${e.message}")
-        } finally {
-            isLoading = false
+        if (userId > 0) {
+            viewModel.loadExpenses(userId)
         }
     }
 
@@ -62,54 +53,42 @@ fun HistoryScreen(
         }
     ) { padding ->
 
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFFF5F5F5))
-                .padding(padding)
-                .padding(16.dp)
-        ) {
-
-            if (isLoading) {
-                item {
-                    CircularProgressIndicator()
-                }
-            } else if (expenses.isEmpty()) {
-                item {
-                    Text("No expense history found.")
-                }
-            } else {
+        if (isLoading && expenses.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else if (!isLoading && expenses.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                Text("No expense history found.")
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFFF5F5F5))
+                    .padding(padding)
+                    .padding(16.dp)
+            ) {
                 items(expenses) { expense ->
-
-                    val safeCategory = expense.category_name ?: "Other"
-                    val safeAmount = expense.amount
+                    // Hide the "00:00:00 GMT" part from the date string
+                    val cleanDate = expense.date.replace("00:00:00 GMT", "").trim()
 
                     ExpenseItem(
-                        icon = when (safeCategory.lowercase()) {
+                        icon = when (expense.categoryName.lowercase()) {
                             "education" -> Icons.Default.School
                             "transport" -> Icons.Default.DirectionsBus
                             "food" -> Icons.Default.Fastfood
                             else -> Icons.Default.Fastfood
                         },
-                        category = safeCategory,
-                        date = "", // Date hidden from History Screen
-                        amount = "-₹$safeAmount",
+                        category = expense.categoryName,
+                        date = cleanDate,
+                        amount = "-₹${expense.amount}",
                         color = Color(0xFFE3F2FD),
                         iconColor = Color(0xFF4285F4)
                     )
-
                     Spacer(modifier = Modifier.height(12.dp))
                 }
             }
         }
-    }
-}
-
-fun mapToCategorySummary(expenses: List<ExpenseItemResponse>): List<CategorySummary> {
-    return expenses.map {
-        CategorySummary(
-            amount = it.amount?.toDoubleOrNull() ?: 0.0,
-            name = it.category_name ?: "Other"
-        )
     }
 }

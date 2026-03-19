@@ -84,7 +84,9 @@ class MainActivity : ComponentActivity() {
                 navController = navController, 
                 startDestination = "splash",
                 enterTransition = { EnterTransition.None },
-                exitTransition = { ExitTransition.None }
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { ExitTransition.None }
             ) {
 
                 composable("splash") {
@@ -161,7 +163,7 @@ class MainActivity : ComponentActivity() {
                 composable(Screen.History.route) {
                     HistoryScreen(
                         userId = userId.intValue,
-                        api = apiService,
+                        viewModel = expenseViewModel,
                         onBackClicked = { navController.popBackStack() },
                         currentScreen = Screen.History,
                         onNavigate = { screen -> navController.navigate(screen.route) }
