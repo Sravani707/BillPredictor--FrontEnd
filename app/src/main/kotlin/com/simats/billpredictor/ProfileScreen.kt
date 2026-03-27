@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -31,6 +32,7 @@ import com.simats.billpredictor.ui.theme.BillpredictorTheme
 fun ProfileScreen(
     userName: String,
     onBackClicked: () -> Unit,
+    onEditProfileClicked: () -> Unit,
     onHelpClicked: () -> Unit,
     onAboutClicked: () -> Unit,
     onPrivacyPolicyClicked: () -> Unit,
@@ -74,6 +76,22 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(24.dp))
             
             Text(
+                "Account",
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Gray
+            )
+
+            ProfileRowItem(
+                icon = Icons.Outlined.Person,
+                text = "Edit Profile",
+                onClick = onEditProfileClicked
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
                 "Settings",
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                 fontSize = 14.sp,
@@ -82,7 +100,7 @@ fun ProfileScreen(
             )
 
             ProfileRowItem(
-                icon = Icons.Outlined.HelpOutline,
+                icon = Icons.AutoMirrored.Outlined.HelpOutline,
                 text = "Help & FAQ",
                 onClick = onHelpClicked
             )
@@ -239,6 +257,7 @@ fun ProfileScreenPreview() {
         ProfileScreen(
             userName = "Sravs5",
             onBackClicked = {},
+            onEditProfileClicked = {},
             onHelpClicked = {},
             onAboutClicked = {},
             onPrivacyPolicyClicked = {},

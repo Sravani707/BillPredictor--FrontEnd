@@ -111,7 +111,12 @@ fun RegisterScreen(
                 // Input Section
                 OutlinedTextField(
                     value = fullName,
-                    onValueChange = { fullName = it },
+                    onValueChange = {
+                        // Allow only letters and spaces
+                        if (it.all { char -> char.isLetter() || char.isWhitespace() }) {
+                            fullName = it
+                        }
+                    },
                     label = { Text("Full Name") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()

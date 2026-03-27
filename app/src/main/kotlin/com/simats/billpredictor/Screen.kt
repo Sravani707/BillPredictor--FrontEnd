@@ -44,4 +44,5 @@ sealed class Screen(val route: String) {
     object About : Screen("about")
     object PrivacyPolicy : Screen("privacy_policy")
     object ContactSupport : Screen("contact_support")
+    object EditProfile : Screen("edit_profile")
 }

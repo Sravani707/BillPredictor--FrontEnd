@@ -123,9 +123,22 @@ interface ExpenseApi {
     suspend fun getTrends(
         @Path("userId") userId: Int
     ): TrendResponse
+
+    // ---------------- PROFILE ----------------
+
+    @GET("profile/{user_id}")
+    suspend fun getProfile(
+        @Path("user_id") userId: Int
+    ): ProfileResponse
+
+    @POST("update_profile")
+    suspend fun updateProfile(
+        @Body request: UpdateProfileRequest
+    ): BasicResponse
 }
 
 data class ForgotPasswordRequest(val email: String)
 data class VerifyOtpRequest(val email: String, val otp: String)
 data class ResetPasswordRequest(val email: String, val password: String)
 data class UpdateSavingStatusRequest(val savingId: Int, val saved: Boolean)
+data class UpdateProfileRequest(val user_id: Int, val name: String)

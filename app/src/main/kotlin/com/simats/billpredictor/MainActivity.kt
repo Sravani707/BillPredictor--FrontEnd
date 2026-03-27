@@ -308,6 +308,7 @@ class MainActivity : ComponentActivity() {
                     ProfileScreen(
                         userName = userName.value,
                         onBackClicked = { navController.popBackStack() },
+                        onEditProfileClicked = { navController.navigate(Screen.EditProfile.route) },
                         onHelpClicked = { navController.navigate(Screen.HelpAndFaq.route) },
                         onAboutClicked = { navController.navigate(Screen.About.route) },
                         onPrivacyPolicyClicked = { navController.navigate(Screen.PrivacyPolicy.route) },
@@ -338,6 +339,18 @@ class MainActivity : ComponentActivity() {
 
                 composable(Screen.ContactSupport.route) {
                     ContactSupportScreen(onBackClicked = { navController.popBackStack() })
+                }
+                
+                composable(Screen.EditProfile.route) {
+                    EditProfileScreen(
+                        userId = userId.intValue,
+                        currentName = userName.value,
+                        api = apiService,
+                        onBackClicked = { navController.popBackStack() },
+                        onProfileUpdated = { newName ->
+                            userName.value = newName
+                        }
+                    )
                 }
             }
         }
