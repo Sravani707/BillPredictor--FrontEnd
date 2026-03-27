@@ -14,7 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.simats.billpredictor.network.ExpenseApi
-import com.simats.billpredictor.network.UpdateProfileRequest
+import com.simats.billpredictor.network.model.UpdateProfileRequest
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
