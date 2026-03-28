@@ -20,5 +20,10 @@
             </intent-filter>
 
         </activity>
+
+        <activity
+            android:name=".SubscriptionActivity"
+            android:theme="@style/Theme.AppCompat.DayNight.NoActionBar"
+            android:exported="false" />
     </application>
 </manifest>

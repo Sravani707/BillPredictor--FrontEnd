@@ -450,7 +450,7 @@ fun HomeScreen(
             }
 
             item {
-                Text("Recent Transactions", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("Recent Expenses", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
             }
 

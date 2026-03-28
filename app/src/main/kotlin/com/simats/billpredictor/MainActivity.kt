@@ -1,5 +1,7 @@
 package com.simats.billpredictor
 
+import android.content.Intent
+
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -72,9 +74,24 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val navController = rememberNavController()
-            val userId = remember { mutableIntStateOf(-1) }
-            val userName = remember { mutableStateOf("") }
-            var currentScreen by remember { mutableStateOf<Screen>(Screen.Home) }
+            val userId = remember { 
+                mutableIntStateOf(intent.getIntExtra("USER_ID", -1)) 
+            }
+            val userName = remember { 
+                mutableStateOf(intent.getStringExtra("USER_NAME") ?: "") 
+            }
+            var currentScreen by remember { 
+                mutableStateOf(if (intent.getBooleanExtra("SKIP_INTRO", false)) Screen.Home else Screen.Home) 
+            }
+            
+            // Effect to handle navigation when returning from SubscriptionActivity
+            LaunchedEffect(intent) {
+                if (intent.getBooleanExtra("SKIP_INTRO", false)) {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo("splash") { inclusive = true }
+                    }
+                }
+            }
 
             val expenseViewModel: ExpenseViewModel = viewModel(
                 factory = ExpenseViewModelFactory(apiService)
@@ -109,11 +126,10 @@ class MainActivity : ComponentActivity() {
                         onRegisterClicked = { navController.navigate(Screen.Register.route) },
                         onForgotPasswordClicked = { navController.navigate(Screen.ForgotPassword.route) },
                         onLoginSuccess = { name, id ->
-                            userName.value = name
-                            userId.intValue = id
-                            navController.navigate(Screen.Home.route) {
-                                popUpTo(Screen.Login.route) { inclusive = true }
-                            }
+                            val intent = Intent(this@MainActivity, SubscriptionActivity::class.java)
+                            intent.putExtra("USER_ID", id)
+                            intent.putExtra("USER_NAME", name)
+                            startActivity(intent)
                         }
                     )
                 }
