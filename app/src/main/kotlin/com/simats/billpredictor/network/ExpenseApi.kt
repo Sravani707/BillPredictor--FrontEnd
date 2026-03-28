@@ -4,6 +4,7 @@ import com.simats.billpredictor.*
 import com.simats.billpredictor.model.EventPlannerModel
 import com.simats.billpredictor.model.EventSavingsItem
 import com.simats.billpredictor.model.EventSavingsResponse
+import com.simats.billpredictor.network.model.UpdateProfileRequest
 import retrofit2.http.*
 
 interface ExpenseApi {
@@ -123,6 +124,18 @@ interface ExpenseApi {
     suspend fun getTrends(
         @Path("userId") userId: Int
     ): TrendResponse
+
+    // ---------------- PROFILE ----------------
+
+    @GET("profile/{user_id}")
+    suspend fun getProfile(
+        @Path("user_id") userId: Int
+    ): ProfileResponse
+
+    @PUT("update_profile")
+    suspend fun updateProfile(
+        @Body request: UpdateProfileRequest
+    ): BasicResponse
 }
 
 data class ForgotPasswordRequest(val email: String)

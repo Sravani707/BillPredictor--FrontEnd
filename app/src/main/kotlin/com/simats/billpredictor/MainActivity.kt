@@ -68,7 +68,7 @@ class MainActivity : ComponentActivity() {
         // TEMPORARY: Test notification immediately
         NotificationHelper.showNotification(
             this,
-            "ExpenseAI Test",
+            "AIMint Test",
             "If you see this, notifications work ✅"
         )
 
@@ -101,7 +101,9 @@ class MainActivity : ComponentActivity() {
                 navController = navController, 
                 startDestination = "splash",
                 enterTransition = { EnterTransition.None },
-                exitTransition = { ExitTransition.None }
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { ExitTransition.None }
             ) {
 
                 composable("splash") {
@@ -174,6 +176,16 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
+                composable(Screen.History.route) {
+                    HistoryScreen(
+                        userId = userId.intValue,
+                        viewModel = expenseViewModel,
+                        onBackClicked = { navController.popBackStack() },
+                        currentScreen = Screen.History,
+                        onNavigate = { screen -> navController.navigate(screen.route) }
+                    )
+                }
+
                 composable(Screen.MonthSummary.route) {
                     MonthlySummaryScreen(
                         userId = userId.intValue,
@@ -221,6 +233,26 @@ class MainActivity : ComponentActivity() {
                         viewModel = expenseViewModel,
                         onBackClicked = { navController.popBackStack() },
                         currentScreen = Screen.Prediction,
+                        onNavigate = { screen -> navController.navigate(screen.route) }
+                    )
+                }
+
+                composable(Screen.TrendingUp.route) {
+                    TrendingUpScreen(
+                        userId = userId.intValue,
+                        viewModel = expenseViewModel,
+                        onBackClicked = { navController.popBackStack() },
+                        currentScreen = Screen.TrendingUp,
+                        onNavigate = { screen -> navController.navigate(screen.route) }
+                    )
+                }
+
+                composable(Screen.TrendingDown.route) {
+                    TrendingDownScreen(
+                        userId = userId.intValue,
+                        viewModel = expenseViewModel,
+                        onBackClicked = { navController.popBackStack() },
+                        currentScreen = Screen.TrendingDown,
                         onNavigate = { screen -> navController.navigate(screen.route) }
                     )
                 }
@@ -292,6 +324,7 @@ class MainActivity : ComponentActivity() {
                     ProfileScreen(
                         userName = userName.value,
                         onBackClicked = { navController.popBackStack() },
+                        onEditProfileClicked = { navController.navigate(Screen.EditProfile.route) },
                         onHelpClicked = { navController.navigate(Screen.HelpAndFaq.route) },
                         onAboutClicked = { navController.navigate(Screen.About.route) },
                         onPrivacyPolicyClicked = { navController.navigate(Screen.PrivacyPolicy.route) },
@@ -322,6 +355,18 @@ class MainActivity : ComponentActivity() {
 
                 composable(Screen.ContactSupport.route) {
                     ContactSupportScreen(onBackClicked = { navController.popBackStack() })
+                }
+                
+                composable(Screen.EditProfile.route) {
+                    EditProfileScreen(
+                        userId = userId.intValue,
+                        currentName = userName.value,
+                        api = apiService,
+                        onBackClicked = { navController.popBackStack() },
+                        onProfileUpdated = { newName ->
+                            userName.value = newName
+                        }
+                    )
                 }
             }
         }

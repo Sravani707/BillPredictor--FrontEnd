@@ -83,8 +83,6 @@ fun SpecialEventsScreen(
     var showDialog by remember { mutableStateOf(false) }
     var selectedEvent by remember { mutableStateOf<EventResponse?>(null) }
 
-    val scope = rememberCoroutineScope()
-
     // Load events using ViewModel
     LaunchedEffect(userId) {
         if (userId > 0) {
@@ -137,7 +135,7 @@ fun SpecialEventsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                if (isLoading) {
+                if (isLoading && events.isEmpty()) {
                     item {
                         Box(
                             Modifier
@@ -233,14 +231,10 @@ fun SpecialEventsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        scope.launch {
-                            try {
-                                api.deleteEvent(selectedEvent!!.id)
-                                viewModel.fetchEvents(userId) // Refresh list
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
+                        // Use ViewModel's delete method to ensure state updates immediately
+                        viewModel.deleteEvent(selectedEvent!!.id, userId) {
                             showDialog = false
+                            selectedEvent = null
                         }
                     }
                 ) {
@@ -248,7 +242,10 @@ fun SpecialEventsScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDialog = false }) {
+                TextButton(onClick = { 
+                    showDialog = false
+                    selectedEvent = null
+                }) {
                     Text("Cancel")
                 }
             }

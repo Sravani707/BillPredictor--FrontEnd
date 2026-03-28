@@ -4,8 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -60,6 +62,31 @@ fun CalculationLogicScreen(
         ) {
 
             item {
+                // Header Badge
+                Surface(
+                    color = Color(0xFFE8F5E9),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.padding(bottom = 16.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CalendarMonth,
+                            contentDescription = null,
+                            tint = Color(0xFF2E7D32),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Powered by Time-Series AI Forecasting",
+                            color = Color(0xFF2E7D32),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
 
                 Text(
                     text = "How Our AI Predicts Your Spending",
@@ -72,14 +99,11 @@ fun CalculationLogicScreen(
                 // ---------------- STEP 1 ----------------
                 CalculationStep(
                     number = 1,
-                    title = "AI Pattern Learning",
+                    title = "Prophet ML Learning",
                     description =
-                        "The AI analyzes your historical expenses and learns your " +
-                                "spending behaviour over time. Instead of using a simple " +
-                                "average, it detects trends such as increasing or decreasing " +
-                                "spending using machine learning regression analysis.",
-                    amount = "Trend Prediction Generated",
-                    amountColor = Color.Black
+                        "The AI studies your past monthly expenses using a time-series machine learning model (Prophet). Instead of drawing a simple straight line, it learns real spending patterns over time, identifying trends and changes in behaviour across months.",
+                    amount = "AI Trend Forecast Generated",
+                    amountColor = Color(0xFF2E7D32)
                 )
 
                 // ---------------- STEP 2 ----------------
@@ -87,27 +111,20 @@ fun CalculationLogicScreen(
                     number = 2,
                     title = "Event Intelligence Adjustment",
                     description =
-                        "The AI examines your planned special events and estimates " +
-                                "their financial impact. These upcoming commitments are " +
-                                "incorporated into the prediction to ensure realistic and " +
-                                "context-aware forecasting.",
-                    event = "Upcoming Events",
-                    eventCost = "Added to prediction",
-                    totalEventCost = "Event Cost Included",
+                        "The AI analyzes your upcoming planned events such as festivals, travel, or personal occasions. Estimated event costs are automatically added to the prediction to make the forecast realistic and context-aware.",
+                    event = "Upcoming Events Included in Prediction",
+                    totalEventCost = "Event Cost Added Automatically",
                     amountColor = Color(0xFFFBC02D)
                 )
 
                 // ---------------- STEP 3 ----------------
                 CalculationStep(
                     number = 3,
-                    title = "Final AI Prediction",
+                    title = "= Final AI Prediction",
                     description =
-                        "The final forecast is produced by combining learned spending " +
-                                "trends with event-based adjustments. This creates a personalized " +
-                                "future expense prediction tailored to your behaviour.",
-                    amount = "AI Predicted Expense",
-                    amountColor = Color(0xFF34A853),
-                    isLast = true
+                        "The final prediction combines AI-learned spending trends with event-based adjustments. This produces a personalized future expense estimate tailored specifically to your financial behaviour.",
+                    isLast = true,
+                    amountColor = Color(0xFF34A853)
                 )
 
                 Spacer(modifier = Modifier.height(32.dp))
@@ -141,7 +158,7 @@ fun CalculationStep(
                     .clip(CircleShape)
                     .background(
                         if (number == 3)
-                            Color(0xFF34A853)
+                            Color(0xFF4CAF50)
                         else
                             Color(0xFF4285F4)
                     ),
@@ -158,7 +175,7 @@ fun CalculationStep(
                 Box(
                     modifier = Modifier
                         .width(2.dp)
-                        .height(110.dp)
+                        .height(if (number == 1) 140.dp else 110.dp)
                         .background(Color.LightGray)
                 )
             }
@@ -179,39 +196,46 @@ fun CalculationStep(
             Text(
                 text = description,
                 fontSize = 14.sp,
-                color = Color.DarkGray
+                color = Color.DarkGray,
+                lineHeight = 20.sp
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
-
             if (amount != null) {
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = amount,
                     color = amountColor,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp
+                    fontSize = 16.sp
                 )
             }
 
-            if (event != null && eventCost != null && totalEventCost != null) {
+            if (event != null || totalEventCost != null) {
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column {
-                        Text(event, color = Color(0xFFFBC02D))
-                        Text(eventCost, color = Color(0xFFFBC02D))
+                    if (event != null) {
+                        Text(
+                            text = event,
+                            color = Color(0xFFFBC02D),
+                            fontSize = 12.sp,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
 
-                    Text(
-                        totalEventCost,
-                        color = Color(0xFFFBC02D),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
+                    if (totalEventCost != null) {
+                        Text(
+                            totalEventCost,
+                            color = Color(0xFFFBC02D),
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
                 }
             }
         }
@@ -223,7 +247,8 @@ fun PredictionSummaryCard() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp)
     ) {
 
         Column(modifier = Modifier.padding(16.dp)) {
@@ -240,7 +265,7 @@ fun PredictionSummaryCard() {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Trend-Based Prediction")
+                Text("Trend Forecast", color = Color.Gray)
                 Text("Calculated by AI", fontWeight = FontWeight.Medium)
             }
 
@@ -250,15 +275,16 @@ fun PredictionSummaryCard() {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Event Adjustments")
+                Text("Event Adjustments", color = Color.Gray)
                 Text("Included", fontWeight = FontWeight.Medium)
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Final Predicted Expense", fontWeight = FontWeight.Bold)
                 Text(

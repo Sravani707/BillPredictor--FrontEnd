@@ -48,9 +48,13 @@ class ExpenseViewModel(private val apiService: ExpenseApi) : ViewModel() {
 
     private val rfcFormatter = SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", Locale.ENGLISH)
 
+    private var lastUserIdLoaded = -1
+    private var lastEventIdLoaded = -1
+
     // ---------- Expenses ----------
     fun loadExpenses(userId: Int) {
         if (userId <= 0) return
+        if (userId == lastUserIdLoaded && _expenses.value.isNotEmpty()) return
 
         viewModelScope.launch {
             _isLoading.value = true
@@ -76,6 +80,7 @@ class ExpenseViewModel(private val apiService: ExpenseApi) : ViewModel() {
                     )
                 }
 
+                lastUserIdLoaded = userId
                 fetchTrends(userId)
                 _errorMessage.value = null
 
@@ -106,6 +111,8 @@ class ExpenseViewModel(private val apiService: ExpenseApi) : ViewModel() {
 
     // ---------- Categories ----------
     fun fetchCategories() {
+        if (_availableCategories.value.isNotEmpty()) return
+
         viewModelScope.launch {
             try {
                 _isLoading.value = true
@@ -124,6 +131,8 @@ class ExpenseViewModel(private val apiService: ExpenseApi) : ViewModel() {
 
     // ---------- Events ----------
     fun fetchEvents(userId: Int) {
+        if (userId == lastUserIdLoaded && _events.value.isNotEmpty()) return
+
         viewModelScope.launch {
             try {
                 _isLoading.value = true
@@ -138,6 +147,8 @@ class ExpenseViewModel(private val apiService: ExpenseApi) : ViewModel() {
     }
 
     fun fetchEventPlanner(userId: Int) {
+        if (userId == lastUserIdLoaded && _eventPlanner.value.isNotEmpty()) return
+
         viewModelScope.launch {
             try {
                 _isLoading.value = true
@@ -153,6 +164,8 @@ class ExpenseViewModel(private val apiService: ExpenseApi) : ViewModel() {
 
     // ---------- Event Savings ----------
     fun fetchEventSavings(userId: Int, eventId: Int) {
+        if (userId == lastUserIdLoaded && eventId == lastEventIdLoaded && _eventSavingsPlan.value.isNotEmpty()) return
+
         viewModelScope.launch {
             try {
                 _isLoading.value = true
@@ -163,6 +176,7 @@ class ExpenseViewModel(private val apiService: ExpenseApi) : ViewModel() {
                 _eventSavingsPlan.value = response.savings_plan
                 // Initialize map with current saved values
                 _savedStatusMap.value = response.savings_plan.associate { it.id to it.saved }
+                lastEventIdLoaded = eventId
             } catch (e: Exception) {
                 Log.e("API_DEBUG", "ERROR", e)
                 _eventSavingsPlan.value = emptyList()
@@ -202,6 +216,7 @@ class ExpenseViewModel(private val apiService: ExpenseApi) : ViewModel() {
         viewModelScope.launch {
             try {
                 apiService.recalculateEventSavings(RecalculateRequest(eventId, newAmount))
+                lastEventIdLoaded = -1 // Force reload
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -214,6 +229,7 @@ class ExpenseViewModel(private val apiService: ExpenseApi) : ViewModel() {
             _isLoading.value = true
             try {
                 apiService.addExpense(request)
+                lastUserIdLoaded = -1 // Force reload
                 loadExpenses(request.user_id)
                 fetchTrends(request.user_id)
                 _errorMessage.value = null
@@ -232,6 +248,7 @@ class ExpenseViewModel(private val apiService: ExpenseApi) : ViewModel() {
             _isLoading.value = true
             try {
                 apiService.updateExpense(realId, request)
+                lastUserIdLoaded = -1 // Force reload
                 loadExpenses(userId)
                 fetchTrends(userId)
                 _errorMessage.value = null
@@ -250,6 +267,7 @@ class ExpenseViewModel(private val apiService: ExpenseApi) : ViewModel() {
             _isLoading.value = true
             try {
                 apiService.deleteExpense(expenseId)
+                lastUserIdLoaded = -1 // Force reload
                 loadExpenses(userId)
                 fetchTrends(userId)
                 _errorMessage.value = null
@@ -269,6 +287,7 @@ class ExpenseViewModel(private val apiService: ExpenseApi) : ViewModel() {
             _isLoading.value = true
             try {
                 apiService.addEvent(request)
+                _events.value = emptyList() // Force reload
                 _errorMessage.value = null
                 onSuccess()
             } catch (e: Exception) {
@@ -285,6 +304,7 @@ class ExpenseViewModel(private val apiService: ExpenseApi) : ViewModel() {
             _isLoading.value = true
             try {
                 apiService.deleteEvent(eventId)
+                _events.value = emptyList() // Force reload
                 fetchEvents(userId)
                 _errorMessage.value = null
                 onSuccess()

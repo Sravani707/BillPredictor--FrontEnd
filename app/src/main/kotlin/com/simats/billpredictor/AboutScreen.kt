@@ -40,7 +40,7 @@ fun AboutScreen(onBackClicked: () -> Unit) {
             Spacer(modifier = Modifier.height(16.dp))
             
             Text(
-                text = "ExpenseAI",
+                text = "AIMint",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -80,7 +80,7 @@ fun AboutScreen(onBackClicked: () -> Unit) {
             Spacer(modifier = Modifier.height(32.dp))
             
             Text(
-                text = "© ExpenseAI Team",
+                text = "© AIMint Team",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.outline
             )
